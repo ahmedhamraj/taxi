@@ -39,13 +39,13 @@ pipeline {
             steps {
                 echo 'SonarCloud Analysis stage'
                 withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                    sh """
+                    sh '''
                         mvn sonar:sonar \
                         -Dsonar.projectKey=ahmedhamraj_taxi \
                         -Dsonar.organization=ahmedhamraj \
                         -Dsonar.host.url=https://sonarcloud.io \
                         -Dsonar.login=$SONAR_TOKEN
-                    """
+                    '''
                 }
             }
         }
