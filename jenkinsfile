@@ -9,6 +9,11 @@ pipeline {
         JAVA_HOME = '/usr/lib/jvm/java-17-openjdk-amd64'
         MAVEN_HOME = '/opt/maven'
         PATH = "$JAVA_HOME/bin:$MAVEN_HOME/bin:$PATH"
+
+        // JFrog Docker Registry
+        JFROG_URL = 'taxibooking01.jfrog.io'
+        DOCKER_REPO = 'taxi-dev-docker-local'
+        IMAGE_NAME = 'taxiapp'
     }
 
     stages {
@@ -68,6 +73,34 @@ pipeline {
                         curl -u $JF_USER:$JF_PASS \
                         -T $ARTIFACT_NAME \
                         "https://taxibooking01.jfrog.io/artifactory/taxi-libs-release/build-${BUILD_NUMBER}/$ARTIFACT_NAME"
+                    '''
+                }
+            }
+        }    
+
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker Image..'
+
+                sh '''
+                    docker build -t $JFROG_URL/$DOCKER_REPO/$IMAGE_NAME:${BUILD_NUMBER} .
+                
+                '''     
+            }
+        }    
+
+        stage('Docker Login & Push') {
+            steps {
+                echo 'Logging in to JFrog Docker Registry and pushing image..'
+
+                withCredentials([usernamePassword(
+                    credentialsId: "jfrog-cred",
+                    usernameVariable: "JF_USER",
+                    passwordVariable: "JF_PASS"
+                )]) {
+                    sh '''
+                        docker login $JFROG_URL -u $JF_USER -p $JF_PASS
+                        docker push $JFROG_URL/$DOCKER_REPO/$IMAGE_NAME:${BUILD_NUMBER}
                     '''
                 }
             }
