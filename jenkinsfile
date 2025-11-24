@@ -63,7 +63,7 @@ pipeline {
                     sh '''
                         ARTIFACT_NAME=taxi-${BUILD_NUMBER}.war
 
-                        cp target/*.war $ARTIFACT_NAME
+                        cp taxi-booking/target/*.war \$ARTIFACT_NAME
 
                         curl -u $JF_USER:$JF_PASS \
                         -T $ARTIFACT_NAME \
