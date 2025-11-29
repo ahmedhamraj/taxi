@@ -105,5 +105,20 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy to Dev') {
+            steps {
+                echo 'Deploying to Dev environment...'
+
+                sh '''
+                    kubectl apply -f deployment.yaml
+                    kubectl apply -f service.yaml
+                '''
+            }
+        }
+
+
+
+
     }
 }

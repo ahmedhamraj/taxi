@@ -14,10 +14,10 @@ spec:
         app:  taxi-booking
     spec:
       imagePullSecrets:
-      - name: jfrogcred
+      - name: jfrog-cred
       containers:
       - name:  taxi-booking
-        image: taxi04.jfrog.io/taxi-docker-local/taxiapp:1.0.1
+        image: taxi04.jfrog.io/taxi-docker-local/taxiapp:11
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
