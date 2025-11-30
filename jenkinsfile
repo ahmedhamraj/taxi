@@ -106,19 +106,26 @@ pipeline {
             }
         }
 
-        stage('Deploy to Dev') {
+        stage('Deploy to EKS') {
             steps {
-                echo 'Deploying to Dev environment...'
+                echo 'Deploying to EKS Cluster..'
 
-                withCredentials([kubeconfigFile(
-                    credentialsId: 'dev-eks-config',
-                    variable: 'KUBECONFIG'
-                )]) {
+                withKubeConfig([credentialsId: 'dev-eks-config']) {
                     sh '''
-                       BUILD_NUMBER=${BUILD_NUMBER} ./deploy.sh
-                    '''
+                        echo "Injecting image version into deployment.yaml"
+                        sed -i "s|IMAGE_TAG|${BUILD_NUMBER}|g" deployment.yaml
+                        
+                        echo "Applying manifests to EKS cluster"
+                        kubectl apply -f deployment.yaml -n dev
+                        kubectl apply -f service.yaml -n dev
+
+                        echo "checking Rolling status..."
+                        kubectl rollout status deployment/taxiapp -n dev
+
+                        echo "Deployed completed"
+                    '''        
                 }
             }
         }
     }
-}            
+}        
