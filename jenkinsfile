@@ -118,9 +118,7 @@ pipeline {
                        BUILD_NUMBER=${BUILD_NUMBER} ./deploy.sh
                     '''
                 }
-
-
-
-
+            }
+        }
     }
-}
+}            
