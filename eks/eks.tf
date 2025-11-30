@@ -154,8 +154,8 @@ resource "aws_eks_node_group" "backend" {
   
   scaling_config {
     desired_size = 2
-    max_size     = 3
-    min_size     = 1
+    max_size     = 2
+    min_size     = 2
   }
 
   update_config {

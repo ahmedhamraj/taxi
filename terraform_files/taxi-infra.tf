@@ -1,135 +1,78 @@
-provider "aws" {
-  region = "us-east-1"
-}
-data "aws_vpc" "default" {
-  default = true
-}
-data "aws_availability_zones" "supported" {
-  state       = "available"
-  exclude_names = ["us-east-1e"]
-}
+resource "aws_instance" "master" {
+  ami                         = var.ami_id
+  instance_type               = var.master_instance_type
+  key_name                    = var.key_name
+  associate_public_ip_address = true
 
-# Get default subnets
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-  filter {
-    name   = "availability-zone"
-    values = data.aws_availability_zones.supported.names
-  }
-}
-
-resource "aws_instance" "ansible" {
-    ami                     = "ami-0bbdd8c17ed981ef9"
-    instance_type           = "t2.medium"
-    key_name                = "taxi"
-    vpc_security_group_ids  = [aws_security_group.demo-sg.id]
-    //subnet_id               = "subnet-077471d3c705ea769"
-    tags                    = {
-        Name      = "ansible"
-    }
-}
-    
-
-
-resource "aws_instance" "jenkins_master" {
-  ami                        = "ami-0bbdd8c17ed981ef9"
-  instance_type              = "t2.medium"
-  key_name                   = "taxi"
-  vpc_security_group_ids     = [aws_security_group.demo-sg.id]
-  
-  tags                       = {
-    Name = "jenkins-master"
-  }
-  
-
-}
-
-resource "aws_instance" "jenkins_slave" {
-  ami                        = "ami-0bbdd8c17ed981ef9"
-  instance_type              = "t2.medium"
-  key_name                   = "taxi"
-  vpc_security_group_ids     = [aws_security_group.demo-sg.id]
-  
-  tags                       = {
-    Name = "jenkins-slave"
-  }
-  
-}
-
-
-resource "aws_security_group" "demo-sg" {
-  name        = "demo-sg"
-  description = "SSH Access"
-
-  
-  ingress {
-    description      = "SHH access"
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    }
-
-    ingress {
-    description      = "Jenkins port"
-    from_port        = 8080
-    to_port          = 8080
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    }
-    ingress {
-    description      = "Container  port"
-    from_port        = 8000
-    to_port          = 8000
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    }
-    ingress {
-    description      = "https  port"
-    from_port        = 443
-    to_port          = 443
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    }
-    ingress {
-    description      = "http  port"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    }
-  egress {
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+  lifecycle {
+    ignore_changes = [
+      associate_public_ip_address,
+      instance_type
+    ]
   }
 
   tags = {
-    Name = "ssh-port"
-
+    Name = "master"
   }
 }
 
-  module "sgs" {
-  source = "../sg_eks"
-  vpc_id = data.aws_vpc.default.id
+resource "aws_instance" "slave" {
+    ami                         = var.ami_id
+    instance_type               = var.slave_instance_type
+    key_name                    = var.key_name
+    associate_public_ip_address = false   # USING ELASTIC IP
+
+    root_block_device {
+        delete_on_termination = false     # KEEP SLAVE DATA SAFE
+    }
+
+    lifecycle {
+        ignore_changes = [
+            instance_type,                # PREVENT TERRAFORM FROM DELETING INSTANCE
+            associate_public_ip_address
+        ]
+    }
+
+    tags = {
+        Name = "slave"
+    }
 }
 
-# EKS Cluster Module
+resource "aws_eip" "slave_eip" {
+    instance = aws_instance.slave.id
+
+    tags = {
+        Name = "slave-eip"
+    }
+}
+
+
+data "aws_vpc" "default" {
+    default = true
+}
+
+data "aws_subnets" "eks_subnets" {
+    filter {
+        name   = "vpc-id"
+        values = [data.aws_vpc.default.id]
+    }
+    
+    filter {
+        name = "availability-zone"
+        values = ["us-east-1a", "us-east-1b", "us-east-1f"]
+    }
+}
+
+module "sgs" {
+    source = "./sg_eks"
+    vpc_id = data.aws_vpc.default.id
+}
+
 module "eks" {
-  source     = "../eks"
-  vpc_id     = data.aws_vpc.default.id
-  subnet_ids = data.aws_subnets.default.ids
-  sg_ids     = module.sgs.security_group_public
+    source         = "./eks"
+    subnet_ids      = data.aws_subnets.eks_subnets.ids
+    vpc_id          = data.aws_vpc.default.id
+    sg_ids          = module.sgs.security_group_ids
 }
 
-
-output "eks_cluster_endpoint" {
-  value = module.eks.endpoint
-}
 
